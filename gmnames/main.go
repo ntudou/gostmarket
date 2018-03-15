@@ -18,13 +18,6 @@ const (
 
 var service_map sync.Map
 
-func checkError(err error) {
-	if err != nil {
-		log.Printf("%+v\n", err)
-		os.Exit(-1)
-	}
-}
-
 func HttpRnd(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
@@ -33,27 +26,72 @@ func HttpRnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" {
-		si := new(ServiceInfo)
-		si.Code = "123"
-		si.Namespace = "test"
-		si.Interfaces = "127.0.0.1"
-		si.Host = "10.100.2.21"
-		si.Stat = "online"
-		si.Active = 123123123123
-		service_map.Store(si.Code, si)
-		sm := make(map[string]*ServiceInfo)
-		service_map.Range(func(k, v interface{}) bool {
-			sm[k.(string)] = v.(*ServiceInfo)
-			return true
-		})
-		body, err := json.Marshal(sm)
-		if err != nil {
-			log.Println(err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+		if len(r.Form["c"]) > 0 {
+			code := r.Form["c"][0]
+			s, ok := service_map.Load(code)
+			if !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			body, err := json.Marshal(s)
+			if err != nil {
+				log.Println(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			encode, err := GCMEncrypt(body)
+			if err != nil {
+				log.Println(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(encode)
+		} else if len(r.Form["n"]) > 0 {
+			namespace := r.Form["n"][0]
+			sm := make(map[string]*ServiceInfo)
+			service_map.Range(func(k, v interface{}) bool {
+				s := v.(*ServiceInfo)
+				if s.Namespace == namespace {
+					sm[k.(string)] = s
+				}
+				return true
+			})
+			body, err := json.Marshal(sm)
+			if err != nil {
+				log.Println(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			encode, err := GCMEncrypt(body)
+			if err != nil {
+				log.Println(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(encode)
+		} else {
+			sm := make(map[string]*ServiceInfo)
+			service_map.Range(func(k, v interface{}) bool {
+				sm[k.(string)] = v.(*ServiceInfo)
+				return true
+			})
+			body, err := json.Marshal(sm)
+			if err != nil {
+				log.Println(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			encode, err := GCMEncrypt(body)
+			if err != nil {
+				log.Println(err.Error())
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(encode)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(body)
 	} else if r.Method == "POST" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -74,7 +112,7 @@ func HttpRnd(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
+		si.Host = r.RemoteAddr
 		if _, ok := service_map.Load(si.Code); ok {
 			service_map.Delete(si.Code)
 		}
@@ -95,7 +133,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "key,k",
-			Value: "12345678",
+			Value: "12345678901234567890123456789012",
 			Usage: "key",
 		},
 		cli.StringFlag{

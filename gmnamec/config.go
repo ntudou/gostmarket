@@ -9,8 +9,11 @@ import (
 type Config struct {
 	Listen    string `json:"listen"`
 	Target    string `json:"target"`
+	Namespace string `json:"namespace"`
 	Interface string `json:interface`
+	Port      string `json:"port"`
 	Key       string `json:"key"`
+	Code      string `json:"code"`
 }
 
 func parseJSONConfig(config *Config, path string) error {
