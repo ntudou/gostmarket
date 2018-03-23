@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN" xml:lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="/src/pure-min.css" />
+<script type="text/javascript" src="/src/jquery.min.js"></script>
+<script src="/src/forge.min.js"></script>
+</head>
+<body>
+<form id="target" class="pure-form pure-form-aligned">
+    <fieldset>
+        <legend>A compact inline form</legend>
+
+        <input type="email" placeholder="Email">
+        <input id="password" type="password" placeholder="Password">
+
+        <label for="remember">
+            <input id="remember" type="checkbox"> Remember me
+        </label>
+
+        <button id="submit" type="submit" class="pure-button pure-button-primary">Sign in</button>
+    </fieldset>
+</form>
+
+<script type="text/javascript">
+$("#target").submit(function(event){
+    alert("a")
+});
+</script>
+</body>
+</html>

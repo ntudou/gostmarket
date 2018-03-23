@@ -3,12 +3,16 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/pbkdf2"
@@ -89,12 +93,66 @@ func checkError(err error) {
 	}
 }
 
+func getserviceinfo() (string, error) {
+	var target []string
+	target = append(target, "127.0.0.1:8802")
+	target = append(target, "127.0.0.1:8802")
+	for _, v := range target {
+		resp, err := http.Get("http://" + v + "?n=gost")
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+		decode, err := GCMDecrypt(body)
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+		service_map := make(map[string]*ServiceInfo)
+		err = json.Unmarshal(decode, &service_map)
+		if err != nil {
+			log.Println(err.Error())
+			continue
+		}
+		for _, v := range service_map {
+			idx := strings.Index(v.Host, ":")
+			return v.Host[0:idx], nil
+		}
+	}
+	return "", errors.New("bad host")
+}
+
 func main() {
-	rand.Seed(int64(time.Now().Nanosecond()))
+	AES_KEY = []byte("01234567890123456789012345678901")
+	var host string
+	var err error
+	for {
+		host, err = getserviceinfo()
+		if err != nil {
+			continue
+		} else {
+			break
+		}
+	}
+	run(host)
+}
+
+func init() {
 	if VERSION == "SELFBUILD" {
 		// add more log flags for debugging
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
 	}
+}
+
+func run(host string) {
+	rand.Seed(int64(time.Now().Nanosecond()))
 	myApp := cli.NewApp()
 	myApp.Name = "gostmarket"
 	myApp.Usage = "client(with SMUX)"
@@ -350,7 +408,7 @@ func main() {
 		smuxConfig.KeepAliveInterval = time.Duration(config.KeepAlive) * time.Second
 
 		createConn := func() (*smux.Session, error) {
-			kcpconn, err := kcp.DialWithOptions(config.RemoteAddr, block, config.DataShard, config.ParityShard)
+			kcpconn, err := kcp.DialWithOptions(host+":16888", block, config.DataShard, config.ParityShard)
 			if err != nil {
 				return nil, errors.Wrap(err, "createConn()")
 			}
